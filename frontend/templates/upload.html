@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Resume - JobMatch AI</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">JobMatch AI</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/upload">Upload Resume</a>
+                <a href="/profile">My Profile</a>
+                <a href="/recommendations">Find Jobs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container-sm" style="margin-top: 3rem;">
+        <div class="card">
+            <div class="card-header text-center">
+                <h1 class="card-title">Upload Your Resume</h1>
+                <p class="card-subtitle">We'll extract your information automatically using AI</p>
+            </div>
+
+            <div id="uploadArea" class="upload-area">
+                <div class="upload-icon">📤</div>
+                <h3 style="margin-bottom: 0.5rem; color: var(--gray-700);">Drag & drop your resume here</h3>
+                <p style="color: var(--gray-500); margin-bottom: 1rem;">or</p>
+                <label for="fileInput" class="btn btn-primary">
+                    Browse Files
+                </label>
+                <input type="file" id="fileInput" accept=".pdf,.docx" style="display: none;">
+                <p style="margin-top: 1rem; color: var(--gray-500); font-size: 0.875rem;">
+                    Supports PDF and DOCX files (max 10MB)
+                </p>
+            </div>
+
+            <div id="loadingSection" class="hidden" style="text-align: center; padding: 2rem;">
+                <div class="spinner"></div>
+                <p style="margin-top: 1rem; color: var(--gray-600);">Extracting your information with AI...</p>
+            </div>
+
+            <div id="errorSection" class="hidden"
+                style="margin-top: 1rem; padding: 1rem; background: #fee2e2; border-radius: 0.5rem; color: #991b1b;">
+                <strong>Error:</strong> <span id="errorMessage"></span>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const loadingSection = document.getElementById('loadingSection');
+        const errorSection = document.getElementById('errorSection');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            handleFileUpload(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            handleFileUpload(file);
+        });
+
+        async function handleFileUpload(file) {
+            if (!file) return;
+
+            // Validate file
+            if (!file.name.match(/\.(pdf|docx)$/i)) {
+                showError('Please upload a PDF or DOCX file');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showError('File size must be less than 10MB');
+                return;
+            }
+
+            // Show loading
+            uploadArea.classList.add('hidden');
+            errorSection.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/api/profile/upload-resume', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Upload failed');
+                }
+
+                const extractedData = await response.json();
+
+                // Store in session storage
+                sessionStorage.setItem('extractedData', JSON.stringify(extractedData));
+
+                // Redirect to profile page
+                window.location.href = '/profile';
+
+            } catch (error) {
+                showError(error.message);
+                loadingSection.classList.add('hidden');
+                uploadArea.classList.remove('hidden');
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorSection.classList.remove('hidden');
+        }
+    </script>
+</body>
+
+</html>

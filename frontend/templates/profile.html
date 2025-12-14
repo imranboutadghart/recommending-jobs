@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - JobMatch AI</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">JobMatch AI</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/upload">Upload Resume</a>
+                <a href="/profile">My Profile</a>
+                <a href="/recommendations">Find Jobs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container-sm" style="margin-top: 3rem; margin-bottom: 3rem;">
+        <div class="card">
+            <div class="card-header">
+                <h1 class="card-title">Your Profile</h1>
+                <p class="card-subtitle">Review and edit your information</p>
+            </div>
+
+            <form id="profileForm">
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" id="name" class="form-input" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="email" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" id="phone" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Location</label>
+                    <input type="text" id="location" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Professional Summary</label>
+                    <textarea id="summary" class="form-textarea"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Skills</label>
+                    <div class="tags" id="skillsTags"></div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <input type="text" id="skillInput" class="form-input" placeholder="Add a skill...">
+                        <button type="button" class="btn btn-secondary" onclick="addSkill()">Add</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Desired Job Titles</label>
+                    <div class="tags" id="jobTitlesTags"></div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <input type="text" id="jobTitleInput" class="form-input" placeholder="e.g., Software Engineer">
+                        <button type="button" class="btn btn-secondary" onclick="addJobTitle()">Add</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                    <button type="submit" class="btn btn-primary">Save Profile & Find Jobs</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        let skills = [];
+        let jobTitles = [];
+
+        // Load extracted data if available
+        window.addEventListener('DOMContentLoaded', () => {
+            const extractedData = sessionStorage.getItem('extractedData');
+            if (extractedData) {
+                const data = JSON.parse(extractedData);
+                populateForm(data);
+            }
+        });
+
+        function populateForm(data) {
+            document.getElementById('name').value = data.name || '';
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('phone').value = data.phone || '';
+            document.getElementById('location').value = data.location || '';
+            document.getElementById('summary').value = data.summary || '';
+
+            skills = data.skills || [];
+            renderSkills();
+
+            jobTitles = [];
+            renderJobTitles();
+        }
+
+        function addSkill() {
+            const input = document.getElementById('skillInput');
+            const skill = input.value.trim();
+            if (skill && !skills.includes(skill)) {
+                skills.push(skill);
+                renderSkills();
+                input.value = '';
+            }
+        }
+
+        function removeSkill(skill) {
+            skills = skills.filter(s => s !== skill);
+            renderSkills();
+        }
+
+        function renderSkills() {
+            const container = document.getElementById('skillsTags');
+            container.innerHTML = skills.map(skill =>
+                `<span class="tag">${skill} <span class="tag-remove" onclick="removeSkill('${skill}')">×</span></span>`
+            ).join('');
+        }
+
+        function addJobTitle() {
+            const input = document.getElementById('jobTitleInput');
+            const title = input.value.trim();
+            if (title && !jobTitles.includes(title)) {
+                jobTitles.push(title);
+                renderJobTitles();
+                input.value = '';
+            }
+        }
+
+        function removeJobTitle(title) {
+            jobTitles = jobTitles.filter(t => t !== title);
+            renderJobTitles();
+        }
+
+        function renderJobTitles() {
+            const container = document.getElementById('jobTitlesTags');
+            container.innerHTML = jobTitles.map(title =>
+                `<span class="tag">${title} <span class="tag-remove" onclick="removeJobTitle('${title}')">×</span></span>`
+            ).join('');
+        }
+
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const profileData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value || null,
+                phone: document.getElementById('phone').value || null,
+                location: document.getElementById('location').value || null,
+                summary: document.getElementById('summary').value || null,
+                skills: skills,
+                desired_job_titles: jobTitles,
+                experience: [],
+                education: []
+            };
+
+            try {
+                const response = await fetch('/api/profile/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(profileData)
+                });
+
+                if (!response.ok) throw new Error('Failed to save profile');
+
+                const savedProfile = await response.json();
+                sessionStorage.setItem('userId', savedProfile.id);
+                sessionStorage.removeItem('extractedData');
+
+                // Redirect to recommendations
+                window.location.href = '/recommendations?userId=' + savedProfile.id;
+
+            } catch (error) {
+                alert('Error saving profile: ' + error.message);
+            }
+        });
+    </script>
+</body>
+
+</html>

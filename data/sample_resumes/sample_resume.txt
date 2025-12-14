@@ -1,0 +1,44 @@
+John Doe
+john.doe@email.com | (555) 123-4567 | San Francisco, CA
+
+PROFESSIONAL SUMMARY
+Experienced Software Engineer with 5+ years building scalable web applications. Expert in Python, JavaScript, and cloud technologies. Passionate about creating efficient, maintainable code and solving complex technical challenges.
+
+SKILLS
+Programming Languages: Python, JavaScript, TypeScript, SQL
+Frameworks: FastAPI, Django, React, Node.js, Express
+Databases: PostgreSQL, MongoDB, Redis
+Cloud & DevOps: AWS, Docker, Kubernetes, CI/CD
+Tools: Git, Linux, REST APIs, GraphQL
+
+WORK EXPERIENCE
+
+Senior Software Engineer
+TechCorp Inc. | January 2021 - Present
+- Designed and implemented microservices architecture serving 1M+ daily users
+- Led team of 4 engineers in developing customer-facing web applications
+- Reduced API response time by 60% through optimization and caching strategies
+- Implemented CI/CD pipelines reducing deployment time from hours to minutes
+
+Software Developer
+StartupXYZ | June 2018 - December 2020
+- Built full-stack web applications using Python (Django) and React
+- Developed RESTful APIs consumed by mobile and web clients
+- Collaborated with product team to define features and technical requirements
+- Maintained 95%+ test coverage across all projects
+
+EDUCATION
+
+Bachelor of Science in Computer Science
+University of California, Berkeley | 2014 - 2018
+- GPA: 3.7/4.0
+- Relevant coursework: Algorithms, Data Structures, Database Systems, Machine Learning
+
+CERTIFICATIONS
+- AWS Certified Solutions Architect - Associate
+- MongoDB Certified Developer
+
+PROJECTS
+Open Source Contributor | Various Projects
+- Active contributor to popular Python and JavaScript open source projects
+- Contributed performance improvements and bug fixes to FastAPI framework

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Recommendations - JobMatch AI</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">JobMatch AI</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/upload">Upload Resume</a>
+                <a href="/profile">My Profile</a>
+                <a href="/recommendations">Find Jobs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container" style="margin-top: 2rem; margin-bottom: 3rem;">
+        <div class="card" style="margin-bottom: 2rem;">
+            <h1 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">Your Job Matches</h1>
+            <p style="color: var(--gray-600); margin-bottom: 1.5rem;">Ranked by AI-powered similarity matching</p>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="remoteOnly">
+                    <span>Remote Only</span>
+                </label>
+                <button class="btn btn-primary" onclick="loadRecommendations()">Refresh Results</button>
+            </div>
+        </div>
+
+        <div id="loadingSection" style="text-align: center; padding: 3rem;">
+            <div class="spinner"></div>
+            <p style="margin-top: 1rem; color: var(--gray-600);">Finding your perfect matches...</p>
+        </div>
+
+        <div id="jobsSection" class="hidden">
+            <div class="job-grid" id="jobsGrid"></div>
+        </div>
+
+        <div id="errorSection" class="hidden card" style="background: #fee2e2; color: #991b1b;">
+            <strong>Error:</strong> <span id="errorMessage"></span>
+        </div>
+    </main>
+
+    <script>
+        let userId = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            // Get user ID from URL or session
+            const params = new URLSearchParams(window.location.search);
+            userId = params.get('userId') || sessionStorage.getItem('userId');
+
+            if (!userId) {
+                alert('Please upload a resume and create your profile first');
+                window.location.href = '/upload';
+                return;
+            }
+
+            loadRecommendations();
+        });
+
+        async function loadRecommendations() {
+            const loadingSection = document.getElementById('loadingSection');
+            const jobsSection = document.getElementById('jobsSection');
+            const errorSection = document.getElementById('errorSection');
+
+            loadingSection.classList.remove('hidden');
+            jobsSection.classList.add('hidden');
+            errorSection.classList.add('hidden');
+
+            try {
+                const remoteOnly = document.getElementById('remoteOnly').checked;
+
+                const response = await fetch('/api/recommendations/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        filters: {
+                            remote_only: remoteOnly
+                        },
+                        limit: 20
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to load recommendations');
+
+                const matches = await response.json();
+                displayJobs(matches);
+
+                loadingSection.classList.add('hidden');
+                jobsSection.classList.remove('hidden');
+
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = error.message;
+                loadingSection.classList.add('hidden');
+                errorSection.classList.remove('hidden');
+            }
+        }
+
+        function displayJobs(matches) {
+            const grid = document.getElementById('jobsGrid');
+
+            if (matches.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; color: var(--gray-600);">No jobs found. Try adjusting your filters.</p>';
+                return;
+            }
+
+            grid.innerHTML = matches.map(match => {
+                const { job, match_score, explanation } = match;
+                const scoreColor = match_score >= 70 ? '#10b981' : match_score >= 50 ? '#f59e0b' : '#6366f1';
+
+                return `
+                    <div class="job-card">
+                        <div class="job-header">
+                            <h3 class="job-title">${job.title}</h3>
+                            <div class="job-company">${job.company}</div>
+                            <div class="job-location">📍 ${job.location} ${job.remote ? '• 🏠 Remote' : ''}</div>
+                        </div>
+
+                        <div class="match-score">
+                            <div class="score-circle" style="background: ${scoreColor};">
+                                ${Math.round(match_score)}%
+                            </div>
+                            <div class="score-details">
+                                <div class="score-label">Match Score</div>
+                                <div class="score-bar">
+                                    <div class="score-fill" style="width: ${match_score}%; background: ${scoreColor};"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p style="color: var(--gray-600); font-size: 0.9rem; margin: 1rem 0;">
+                            ${explanation.explanation}
+                        </p>
+
+                        ${explanation.matched_skills.length > 0 ? `
+                            <div class="job-skills">
+                                <strong style="font-size: 0.875rem; color: var(--gray-700); display: block; margin-bottom: 0.5rem;">
+                                    Matched Skills:
+                                </strong>
+                                ${explanation.matched_skills.map(skill =>
+                    `<span class="skill-tag matched">${skill}</span>`
+                ).join('')}
+                            </div>
+                        ` : ''}
+
+                        ${explanation.missing_skills.length > 0 && explanation.missing_skills.length <= 5 ? `
+                            <div style="margin-top: 1rem;">
+                                <strong style="font-size: 0.875rem; color: var(--gray-600); display: block; margin-bottom: 0.5rem;">
+                                    Skills to develop:
+                                </strong>
+                                ${explanation.missing_skills.map(skill =>
+                    `<span class="skill-tag">${skill}</span>`
+                ).join('')}
+                            </div>
+                        ` : ''}
+
+                        <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                            ${job.url ? `<a href="${job.url}" target="_blank" class="btn btn-primary" style="flex: 1;">View Job</a>` : ''}
+                            <button class="btn btn-outline" onclick="saveJob(${JSON.stringify(job).replace(/"/g, '&quot;')}, ${match_score})">Save</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function saveJob(job, matchScore) {
+            try {
+                const response = await fetch('/api/jobs/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        job: job,
+                        match_score: matchScore
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification('Job saved successfully!', 'success');
+                } else {
+                    showNotification('Failed to save job', 'error');
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>

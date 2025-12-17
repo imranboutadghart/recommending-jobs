@@ -1,6 +1,6 @@
 """User profile data models"""
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import Column, Integer, String, JSON, DateTime
 from sqlalchemy.sql import func
 from backend.database.db import Base
@@ -9,16 +9,16 @@ from backend.database.db import Base
 # Pydantic models for API requests/responses
 class Experience(BaseModel):
     """Work experience entry"""
-    title: str = Field(..., description="Job title")
-    company: str = Field(..., description="Company name")
-    duration: str = Field(..., description="Duration (e.g., '2 years', 'Jan 2020 - Dec 2022')")
+    title: Optional[str] = Field(None, description="Job title")
+    company: Optional[str] = Field(None, description="Company name")
+    duration: Optional[str] = Field(None, description="Duration (e.g., '2 years', 'Jan 2020 - Dec 2022')")
     description: Optional[str] = Field(None, description="Job description")
 
 
 class Education(BaseModel):
     """Education entry"""
-    degree: str = Field(..., description="Degree name")
-    institution: str = Field(..., description="School/University name")
+    degree: Optional[str] = Field(None, description="Degree name")
+    institution: Optional[str] = Field(None, description="School/University name")
     year: Optional[str] = Field(None, description="Graduation year or period")
     field: Optional[str] = Field(None, description="Field of study")
 
@@ -39,8 +39,7 @@ class UserProfile(BaseModel):
     summary: Optional[str] = Field(None, description="Professional summary")
     location: Optional[str] = Field(None, description="Current location")
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ExtractedResume(BaseModel):

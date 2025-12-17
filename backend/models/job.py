@@ -1,6 +1,6 @@
 """Job listing data models"""
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import Column, Integer, String, Float, Boolean, JSON, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from backend.database.db import Base
@@ -22,8 +22,7 @@ class JobListing(BaseModel):
     source: str = Field(..., description="Data source (adzuna, jooble, mock)")
     posted_date: Optional[str] = Field(None, description="When job was posted")
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchExplanation(BaseModel):

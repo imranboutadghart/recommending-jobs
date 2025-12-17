@@ -9,9 +9,18 @@ from backend.database.db import get_db
 from backend.models.job import JobListing, SavedJobDB
 from backend.models.user import UserProfileDB
 from backend.services.job_aggregator import job_aggregator
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
+
+
+# Request models
+class SaveJobRequest(BaseModel):
+    """Request model for saving a job"""
+    user_id: int
+    job: JobListing
+    match_score: Optional[float] = None
 
 
 @router.get("/search", response_model=List[JobListing])
@@ -75,15 +84,20 @@ async def get_saved_jobs(
 
 @router.post("/save")
 async def save_job(
-    user_id: int,
-    job: JobListing,
-    match_score: Optional[float] = None,
+    request: SaveJobRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Save a job to user's favorites"""
+    """
+    Save a job to user's favorites
+    
+    Request body should contain:
+    - user_id: User ID
+    - job: JobListing object
+    - match_score: Optional match score
+    """
     # Verify user exists
     result = await db.execute(
-        select(UserProfileDB).where(UserProfileDB.id == user_id)
+        select(UserProfileDB).where(UserProfileDB.id == request.user_id)
     )
     user = result.scalar_one_or_none()
     
@@ -94,8 +108,8 @@ async def save_job(
     result = await db.execute(
         select(SavedJobDB).where(
             and_(
-                SavedJobDB.user_id == user_id,
-                SavedJobDB.job_id == job.id
+                SavedJobDB.user_id == request.user_id,
+                SavedJobDB.job_id == request.job.id
             )
         )
     )
@@ -106,16 +120,16 @@ async def save_job(
     
     # Save job
     saved_job = SavedJobDB(
-        user_id=user_id,
-        job_id=job.id,
-        job_data=job.model_dump(),
-        match_score=match_score
+        user_id=request.user_id,
+        job_id=request.job.id,
+        job_data=request.job.model_dump(),
+        match_score=request.match_score
     )
     db.add(saved_job)
     await db.commit()
     await db.refresh(saved_job)
     
-    logger.info(f"User {user_id} saved job {job.id}")
+    logger.info(f"User {request.user_id} saved job {request.job.id}")
     return {"message": "Job saved successfully", "id": saved_job.id}
 
 

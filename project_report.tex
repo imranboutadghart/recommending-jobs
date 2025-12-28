@@ -1,0 +1,221 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{float}
+\usepackage{titlesec}
+
+% Page setup
+\geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+}
+
+% Code listing style
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\title{\textbf{Job Recommendation System Report}}
+\author{
+    \textbf{Project Members:}\\
+    Boutadghart Imran\\
+    Fazaz Houssam\\
+    Sirgiane Ouical\\
+    \\
+    \textbf{Supervised by:}\\
+    Prof. Yassine AFOUDI
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{General Introduction}
+This report details the design and implementation of an AI-powered Job Recommendation System. The project aims to solve the challenge of efficiently matching job seekers with relevant job opportunities by leveraging modern Artificial Intelligence (AI) and Machine Learning (ML) techniques. The system automates the extraction of user profiles from resumes and employs a sophisticated weighted algorithm to rank job listings based on semantic and keyword compatibility.
+
+\section{Project Context & Objectives}
+The recruitment process is often time-consuming for both candidates and employers. Candidates struggle to find jobs that match their specific skill sets, while employers are inundated with irrelevant applications. 
+
+Our solution provides:
+\begin{itemize}
+    \item \textbf{Automated Resume Parsing}: Extracting structured data (skills, experience, contact info) from PDF/DOCX resumes using Generative AI.
+    \item \textbf{Intelligent Matching}: Going beyond simple keyword matching by using vector embeddings to understand the semantic meaning of job descriptions and user profiles.
+    \item \textbf{Centralized Aggregation}: Gathering jobs from multiple sources into a single platform.
+\end{itemize}
+
+\section{Technical Architecture}
+
+\subsection{Technology Stack}
+The system is built using a modern, robust tech stack ensuring scalability and performance:
+\begin{itemize}
+    \item \textbf{Backend}: Python 3.10+, FastAPI (high-performance async framework).
+    \item \textbf{AI/ML}: Google Gemini API (for text extraction and vector embeddings), Scikit-learn (cosine similarity).
+    \item \textbf{Database}: SQLite with AioSQLite and SQLAlchemy (async ORM).
+    \item \textbf{Frontend}: HTML5, CSS3 (Modern/Glassmorphism design), Vanilla JavaScript.
+    \item \textbf{Testing}: Pytest, Pytest-asyncio.
+\end{itemize}
+
+\subsection{System Pipeline}
+The data flow within the application follows these steps:
+\begin{enumerate}
+    \item \textbf{Data Ingestion (Resume)}: User uploads a resume. The system uses \texttt{PyPDF2} or \texttt{python-docx} to read the file.
+    \item \textbf{AI Extraction}: The raw text is sent to the Google Gemini API with a specific prompt to extract a structured JSON object containing: Name, Contact Info, Skills, Education, and Experience.
+    \item \textbf{Job Aggregation}: The system fetches jobs from external APIs (Adzuna, Jooble) or falls back to a mock data generator (see below).
+    \item \textbf{Embedding Generation}: Both the user profile and job descriptions are converted into high-dimensional vectors using the \texttt{models/embedding-001} model.
+    \item \textbf{Ranking Engine}: The system calculates match scores and sorts jobs for the user.
+\end{enumerate}
+
+\section{Implementation Details}
+
+\subsection{Recommendation Algorithm}
+The core value of the system lies in its recommendation engine (\texttt{RecommendationService}). Unlike simple keyword matching, we rely on a \textbf{Weighted Scoring Algorithm} that combines four distinct metrics:
+
+\begin{itemize}
+    \item \textbf{Skills Match (40\%)}: Calculates the intersection of user skills and job required skills.
+    \item \textbf{Title Match (25\%)}: Fuzzy matching between the user's desired roles and the job title.
+    \item \textbf{Embedding Similarity (20\%)}: Uses \textbf{Cosine Similarity} between the user's profile vector and the job description vector to capture semantic relevance (e.g., matching "ML Engineer" with "Data Scientist" even if words differ).
+    \item \textbf{Experience Match (15\%)}: Heuristic scoring based on years of experience and relevance of past job titles.
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Weighted Score Calculation]
+# backend/services/recommendation.py
+
+overall_score = (
+    0.25 * title_score +
+    0.40 * skills_score +
+    0.15 * experience_score +
+    0.20 * embedding_score
+)
+\end{lstlisting}
+
+\subsection{Data Sources & Mock Data Strategy}
+The system is designed to aggregate jobs from real-time APIs like Adzuna and Jooble. However, due to \textbf{Terms of Service (ToS)} restrictions on scraping LinkedIn and rate limits/availability of public keys for other APIs, we implemented a robust \textbf{Mock Data Generator}.
+
+The \texttt{JobAggregator} service includes a fallback mechanism:
+\begin{itemize}
+    \item It attempts to fetch from configured APIs first.
+    \item If API keys are missing or requests fail, it seamlessly serves a curated list of mock jobs covering diverse sectors (Software, Healthcare, Finance, etc.).
+    \item This ensures the application is always testable and demonstrable even without external dependencies.
+\end{itemize}
+
+\section{Testing & Quality Assurance}
+We adopted a Test-Driven focus to ensure system reliability.
+
+\subsection{Testing Framework}
+The project uses \textbf{pytest} for the test suite, configured via \texttt{pytest.ini}.
+
+\subsection{Test Coverage}
+Testing covers critical components of the system:
+\begin{itemize}
+    \item \textbf{Unit Tests}:
+    \begin{itemize}
+        \item \texttt{tests/test\_resume\_extraction.py}: Validates PDF/DOCX parsing and JSON structure.
+        \item \texttt{tests/test\_similarity.py}: Verifies math behind cosine similarity and weighted scoring.
+    \end{itemize}
+    \item \textbf{Integration Tests}:
+        \item \texttt{tests/test\_job\_aggregation.py}: Ensures job fetching logic works (including mock fallbacks).
+    \item \textbf{API Tests}:
+        \item \texttt{tests/test\_api.py}: Checks HTTP endpoints (GET/POST) for profiles and recommendations.
+\end{itemize}
+
+Testing covers critical components of the system. We achieved a total coverage of 69\%, with high coverage in core business logic models and services.
+
+\begin{table}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Name} & \textbf{Stmts} & \textbf{Miss} & \textbf{Cover} \\ \hline
+backend\textbackslash\_\_init\_\_.py & 1 & 0 & 100\% \\
+backend\textbackslash api\textbackslash\_\_init\_\_.py & 0 & 0 & 100\% \\
+backend\textbackslash api\textbackslash jobs.py & 63 & 33 & 48\% \\
+backend\textbackslash api\textbackslash profile.py & 92 & 60 & 35\% \\
+backend\textbackslash api\textbackslash recommendations.py & 52 & 24 & 54\% \\
+backend\textbackslash config.py & 21 & 0 & 100\% \\
+backend\textbackslash database\textbackslash\_\_init\_\_.py & 0 & 0 & 100\% \\
+backend\textbackslash database\textbackslash db.py & 14 & 2 & 86\% \\
+backend\textbackslash main.py & 45 & 7 & 84\% \\
+backend\textbackslash models\textbackslash\_\_init\_\_.py & 0 & 0 & 100\% \\
+backend\textbackslash models\textbackslash job.py & 60 & 0 & 100\% \\
+backend\textbackslash models\textbackslash user.py & 70 & 0 & 100\% \\
+backend\textbackslash services\textbackslash\_\_init\_\_.py & 0 & 0 & 100\% \\
+backend\textbackslash services\textbackslash embedding\_service.py & 64 & 19 & 70\% \\
+backend\textbackslash services\textbackslash job\_aggregator.py & 89 & 12 & 87\% \\
+backend\textbackslash services\textbackslash recommendation.py & 135 & 27 & 80\% \\
+backend\textbackslash services\textbackslash resume\_extractor.py & 110 & 68 & 38\% \\ \hline
+\textbf{TOTAL} & \textbf{816} & \textbf{252} & \textbf{69\%} \\ \hline
+\end{tabular}%
+}
+\caption{Detailed Test Coverage (26 passed, 1 skipped in 63.32s)}
+\label{tab:coverage}
+\end{table}
+
+Coverage analysis targets the \texttt{backend} package to ensure core business logic is validated. Key services like \texttt{job\_aggregator.py} (87\%) and \texttt{recommendation.py} (80\%) are well-tested. Lower coverage in \texttt{resume\_extractor.py} and API endpoints is due to reliance on external API mocks and integration boundaries.
+
+\section{User Interface}
+The application features a modern, responsive user interface designed for ease of use.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/home_page.png}
+    \caption{Home Page - Entry point for the application}
+    \label{fig:home}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/upload_page.png}
+    \caption{Upload Page - Users can drag and drop their resumes}
+    \label{fig:upload}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/data_confirmation_page.png}
+    \caption{Data Confirmation - Reviewing AI-extracted profile data}
+    \label{fig:confirmation}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/jobs_page.png}
+    \caption{Recommendations Page - Ranked job listings}
+    \label{fig:jobs}
+\end{figure}
+
+\section{Conclusion}
+The recommendation system successfully demonstrates the application of Generative AI in the HR domain. By combining traditional keyword matching with semantic vector search, it provides highly relevant results. The robust architecture, coupled with comprehensive testing and graceful fallbacks, ensures a reliable user experience.
+
+\end{document}

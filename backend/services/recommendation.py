@@ -147,17 +147,27 @@ class RecommendationService:
         experience_score = self._calculate_experience_match(user_profile, job)
         
         # 4. Embedding Similarity Score
-        embedding_score = self._calculate_embedding_similarity(
-            user_embedding, job_embedding
-        )
+        embedding_score = 0.0
+        embedding_available = user_embedding is not None and job_embedding is not None
         
-        # Calculate weighted overall score
-        overall_score = (
-            self.weights['title'] * title_score +
-            self.weights['skills'] * skills_score +
-            self.weights['experience'] * experience_score +
-            self.weights['embedding'] * embedding_score
-        )
+        if embedding_available:
+            embedding_score = self._calculate_embedding_similarity(
+                user_embedding, job_embedding
+            )
+            overall_score = (
+                self.weights['title'] * title_score +
+                self.weights['skills'] * skills_score +
+                self.weights['experience'] * experience_score +
+                self.weights['embedding'] * embedding_score
+            )
+        else:
+            # Re-distribute weights if embedding is not available
+            other_weights_sum = self.weights['title'] + self.weights['skills'] + self.weights['experience']
+            overall_score = (
+                (self.weights['title'] * title_score +
+                 self.weights['skills'] * skills_score +
+                 self.weights['experience'] * experience_score) / other_weights_sum
+            )
         
         # Generate explanation
         explanation = self._generate_explanation(
@@ -169,7 +179,8 @@ class RecommendationService:
             matched_skills,
             missing_skills,
             user_profile,
-            job
+            job,
+            embedding_available
         )
         
         return JobMatch(
@@ -313,7 +324,8 @@ class RecommendationService:
         matched_skills: List[str],
         missing_skills: List[str],
         user_profile: UserProfile,
-        job: JobListing
+        job: JobListing,
+        embedding_available: bool = True
     ) -> MatchExplanation:
         """Generate human-readable match explanation"""
         
@@ -347,8 +359,11 @@ class RecommendationService:
             parts.append(f"You may need to develop {len(missing_skills)} additional skills.")
         
         # Semantic similarity
-        if embedding_score >= 70:
-            parts.append("Strong semantic match between your profile and job description.")
+        if embedding_available:
+            if embedding_score >= 70:
+                parts.append("Strong semantic match between your profile and job description.")
+        else:
+            parts.append("Deep AI Match (Embeddings) currently unavailable, falling back to basic matching.")
         
         explanation_text = " ".join(parts)
         

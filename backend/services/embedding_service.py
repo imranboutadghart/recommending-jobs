@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict
 import asyncio
 import google.generativeai as genai
+from google.api_core import exceptions
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
@@ -53,9 +54,12 @@ class EmbeddingService:
             logger.debug(f"Generated embedding of dimension {len(embedding)}")
             return embedding
             
+        except exceptions.ResourceExhausted as e:
+            logger.warning(f"API quota exceeded for embeddings: {e}")
+            return None
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
-            raise ValueError(f"Failed to generate embedding: {str(e)}")
+            return None
     
     async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
         """

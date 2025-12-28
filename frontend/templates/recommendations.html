@@ -116,14 +116,18 @@
 
             grid.innerHTML = matches.map(match => {
                 const { job, match_score, explanation } = match;
-                const scoreColor = match_score >= 70 ? '#10b981' : match_score >= 50 ? '#f59e0b' : '#6366f1';
+                // Define score colors based on professional palette
+                const scoreColor = match_score >= 80 ? '#10b981' : match_score >= 60 ? '#1e293b' : '#64748b';
 
                 return `
                     <div class="job-card">
                         <div class="job-header">
                             <h3 class="job-title">${job.title}</h3>
                             <div class="job-company">${job.company}</div>
-                            <div class="job-location">📍 ${job.location} ${job.remote ? '• 🏠 Remote' : ''}</div>
+                            <div class="job-location">
+                                <span>📍 ${job.location}</span>
+                                ${job.remote ? '<span>• 🏠 Remote</span>' : ''}
+                            </div>
                         </div>
 
                         <div class="match-score">
@@ -131,41 +135,43 @@
                                 ${Math.round(match_score)}%
                             </div>
                             <div class="score-details">
-                                <div class="score-label">Match Score</div>
+                                <div class="score-label">Match relevance</div>
                                 <div class="score-bar">
                                     <div class="score-fill" style="width: ${match_score}%; background: ${scoreColor};"></div>
                                 </div>
                             </div>
                         </div>
 
-                        <p style="color: var(--gray-600); font-size: 0.9rem; margin: 1rem 0;">
-                            ${explanation.explanation}
-                        </p>
+                        <div style="flex-grow: 1;">
+                            <p style="color: var(--gray-600); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                                ${explanation.explanation}
+                            </p>
 
-                        ${explanation.matched_skills.length > 0 ? `
-                            <div class="job-skills">
-                                <strong style="font-size: 0.875rem; color: var(--gray-700); display: block; margin-bottom: 0.5rem;">
-                                    Matched Skills:
-                                </strong>
-                                ${explanation.matched_skills.map(skill =>
-                    `<span class="skill-tag matched">${skill}</span>`
-                ).join('')}
-                            </div>
-                        ` : ''}
+                            ${explanation.matched_skills.length > 0 ? `
+                                <div class="job-skills">
+                                    <div class="score-label" style="display: block; margin-bottom: 0.5rem;">Matched Skills</div>
+                                    <div class="tags">
+                                        ${explanation.matched_skills.map(skill =>
+                                            `<span class="skill-tag matched">${skill}</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
 
-                        ${explanation.missing_skills.length > 0 && explanation.missing_skills.length <= 5 ? `
-                            <div style="margin-top: 1rem;">
-                                <strong style="font-size: 0.875rem; color: var(--gray-600); display: block; margin-bottom: 0.5rem;">
-                                    Skills to develop:
-                                </strong>
-                                ${explanation.missing_skills.map(skill =>
-                    `<span class="skill-tag">${skill}</span>`
-                ).join('')}
-                            </div>
-                        ` : ''}
+                            ${explanation.missing_skills.length > 0 && explanation.missing_skills.length <= 5 ? `
+                                <div style="margin-top: 1rem;">
+                                    <div class="score-label" style="display: block; margin-bottom: 0.5rem;">Recommended Skills</div>
+                                    <div class="tags">
+                                        ${explanation.missing_skills.map(skill =>
+                                            `<span class="skill-tag">${skill}</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
 
-                        <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-                            ${job.url ? `<a href="${job.url}" target="_blank" class="btn btn-primary" style="flex: 1;">View Job</a>` : ''}
+                        <div style="display: flex; gap: 0.75rem; margin-top: 2rem;">
+                            ${job.url ? `<a href="${job.url}" target="_blank" class="btn btn-secondary" style="flex: 1;">View Details</a>` : ''}
                             <button class="btn btn-outline" onclick="saveJob(${JSON.stringify(job).replace(/"/g, '&quot;')}, ${match_score})">Save</button>
                         </div>
                     </div>

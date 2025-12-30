@@ -27,9 +27,13 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True, description="Debug mode")
     
     # Embedding Settings
-    embedding_model: str = Field(
-        default="models/embedding-001",
-        description="Gemini embedding model"
+    doc2vec_model_path: str = Field(
+        default="./data/doc2vec.model",
+        description="Path to saved Doc2Vec model"
+    )
+    doc2vec_vector_size: int = Field(
+        default=100,
+        description="Size of the embedding vectors"
     )
     max_embedding_batch_size: int = Field(
         default=100,
@@ -50,6 +54,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"
 
 
 # Global settings instance

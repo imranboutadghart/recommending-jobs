@@ -1,161 +1,119 @@
-"""Embedding service using Google Gemini API"""
+"""Embedding service using Gensim Doc2Vec"""
 import logging
-from typing import List, Dict
-import asyncio
-import google.generativeai as genai
-from google.api_core import exceptions
+import os
+import re
+import random
+from typing import List, Dict, Optional
+import numpy as np
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+from datasets import load_dataset
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini API
-genai.configure(api_key=settings.gemini_api_key)
+# Ensure NLTK resources are available
+try:
+    nltk.download('punkt', quiet=True)
+    nltk.download('punkt_tab', quiet=True)
+    nltk.download('stopwords', quiet=True)
+except Exception as e:
+    logger.warning(f"Could not download NLTK resources: {e}")
 
 
 class EmbeddingService:
-    """Generate embeddings using Gemini embedding model"""
+    """Generate embeddings using a pre-trained Doc2Vec model"""
     
     def __init__(self):
-        self.model_name = settings.embedding_model
-        self.cache: Dict[str, List[float]] = {}  # Simple in-memory cache
-    
-    async def generate_embedding(self, text: str) -> List[float]:
-        """
-        Generate embedding for a single text
+        self.model_path = settings.doc2vec_model_path
+        self.vector_size = settings.doc2vec_vector_size
         
-        Args:
-            text: Text to embed
-        
-        Returns:
-            List of floats representing the embedding vector
-        """
-        # Check cache
-        if text in self.cache:
-            logger.debug(f"Cache hit for text: {text[:50]}...")
-            return self.cache[text]
-        
+        # Ensure NLTK resources are available for preprocessing
         try:
-            # Genai doesn't have async API, so we run in executor
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                lambda: genai.embed_content(
-                    model=self.model_name,
-                    content=text,
-                    task_type="retrieval_document"
-                )
-            )
-            
-            embedding = result['embedding']
-            
-            # Cache the result
-            self.cache[text] = embedding
-            
-            logger.debug(f"Generated embedding of dimension {len(embedding)}")
-            return embedding
-            
-        except exceptions.ResourceExhausted as e:
-            logger.warning(f"API quota exceeded for embeddings: {e}")
-            return None
+            nltk.download('punkt', quiet=True)
+            nltk.download('punkt_tab', quiet=True)
+            nltk.download('stopwords', quiet=True)
+            self.stop_words = set(stopwords.words('english'))
         except Exception as e:
-            logger.error(f"Error generating embedding: {e}")
+            logger.warning(f"Could not download NLTK resources: {e}")
+            self.stop_words = set()
+
+        self.model = self._load_model()
+    
+    def _preprocess(self, text: str) -> List[str]:
+        """Tokenize and clean text"""
+        if not text:
+            return []
+        text = re.sub(r'[^\w\s]', '', str(text).lower())
+        tokens = word_tokenize(text)
+        return [t for t in tokens if t not in self.stop_words]
+
+    def _load_model(self) -> Optional[Doc2Vec]:
+        """Load the pre-trained Doc2Vec model"""
+        if os.path.exists(self.model_path):
+            try:
+                logger.info(f"Loading Doc2Vec model from {self.model_path}")
+                return Doc2Vec.load(self.model_path)
+            except Exception as e:
+                logger.error(f"Error loading model from {self.model_path}: {e}")
+                return None
+        else:
+            logger.error(f"Doc2Vec model NOT FOUND at {self.model_path}. "
+                         f"Please run 'python scripts/train_evaluate.py' first.")
             return None
+
+    async def generate_embedding(self, text: str) -> List[float]:
+        """Generate embedding for a single text using pre-trained model"""
+        if self.model is None:
+            logger.error("Embedding requested but model is not loaded.")
+            return []
+            
+        try:
+            tokens = self._preprocess(text)
+            vector = self.model.infer_vector(tokens)
+            return vector.tolist()
+        except Exception as e:
+            logger.error(f"Error generating Doc2Vec embedding: {e}")
+            return []
     
     async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
-        """
-        Generate embeddings for multiple texts
-        
-        Args:
-            texts: List of texts to embed
-        
-        Returns:
-            List of embedding vectors
-        """
-        # Process in batches to avoid rate limits
-        batch_size = settings.max_embedding_batch_size
-        all_embeddings = []
-        
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            
-            # Generate embeddings concurrently within batch
-            tasks = [self.generate_embedding(text) for text in batch]
-            batch_embeddings = await asyncio.gather(*tasks)
-            all_embeddings.extend(batch_embeddings)
-            
-            logger.info(f"Processed batch {i//batch_size + 1}: {len(batch)} texts")
-        
-        return all_embeddings
+        """Generate embeddings for multiple texts"""
+        return [await self.generate_embedding(text) for text in texts]
     
     async def embed_user_profile(self, profile_data: dict) -> List[float]:
-        """
-        Create embedding for user profile by combining key fields
-        
-        Args:
-            profile_data: Dictionary with user profile information
-        
-        Returns:
-            Embedding vector for the user profile
-        """
-        # Combine relevant profile fields into a single text
+        """Create embedding for user profile by combining key fields"""
         parts = []
-        
-        # Add desired job titles
         if profile_data.get('desired_job_titles'):
             parts.append(f"Desired roles: {', '.join(profile_data['desired_job_titles'])}")
-        
-        # Add skills
         if profile_data.get('skills'):
             parts.append(f"Skills: {', '.join(profile_data['skills'])}")
-        
-        # Add summary
         if profile_data.get('summary'):
             parts.append(f"Summary: {profile_data['summary']}")
         
-        # Add experience descriptions
         if profile_data.get('experience'):
             exp_texts = []
             for exp in profile_data['experience']:
-                exp_text = f"{exp.get('title', '')} at {exp.get('company', '')}"
-                if exp.get('description'):
-                    exp_text += f": {exp['description']}"
+                exp_text = f"{exp.get('title', '')} {exp.get('description', '')}"
                 exp_texts.append(exp_text)
             parts.append(f"Experience: {' '.join(exp_texts)}")
         
-        # Combine all parts
-        profile_text = ". ".join(parts)
-        
-        logger.info(f"Creating embedding for user profile (length: {len(profile_text)} chars)")
+        profile_text = " ".join(parts)
         return await self.generate_embedding(profile_text)
     
     async def embed_job_listing(self, job: dict) -> List[float]:
-        """
-        Create embedding for job listing
-        
-        Args:
-            job: Dictionary with job information
-        
-        Returns:
-            Embedding vector for the job listing
-        """
-        # Combine job fields
+        """Create embedding for job listing"""
         parts = [
-            f"Title: {job.get('title', '')}",
-            f"Company: {job.get('company', '')}",
-            f"Description: {job.get('description', '')}",
+            job.get('title', ''),
+            job.get('company', ''),
+            job.get('description', ''),
         ]
-        
         if job.get('skills'):
-            parts.append(f"Required skills: {', '.join(job['skills'])}")
+            parts.extend(job['skills'])
         
-        job_text = ". ".join(parts)
-        
+        job_text = " ".join(parts)
         return await self.generate_embedding(job_text)
-    
-    def clear_cache(self):
-        """Clear the embedding cache"""
-        self.cache.clear()
-        logger.info("Embedding cache cleared")
 
 
 # Global instance
